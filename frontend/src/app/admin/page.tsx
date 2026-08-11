@@ -3,9 +3,17 @@ import Link from 'next/link';
 import { AppShell } from '@/components/app-shell';
 
 const reviewQueue = [
-  { title: 'Payroll Update Notice', type: 'Email phishing', status: 'Needs review', risk: 'Medium' },
-  { title: 'Campus Wi-Fi QR Poster', type: 'QR phishing', status: 'Draft', risk: 'High' },
-  { title: 'Recruiter Verification Chat', type: 'Social engineering', status: 'Ready', risk: 'Low' },
+  { title: 'Payroll Update Notice', type: 'Email anatomy lab', status: 'Needs review', risk: 'Medium' },
+  { title: 'Homograph Account Alert', type: 'Domain reasoning lab', status: 'Draft', risk: 'High' },
+  { title: 'Recruiter Verification Email', type: 'Writing manipulation lab', status: 'Ready', risk: 'Medium' },
+];
+
+const labBlueprint = [
+  { title: 'Concept', text: 'Choose one email risk pattern: homograph domain, attachment bait, urgency, authority pressure, OTP theft, or reply-path mismatch.' },
+  { title: 'Generated sample', text: 'GPT drafts the sender, subject, body, link, attachment name, and realistic email tone for the selected audience.' },
+  { title: 'Interaction', text: 'Learners inspect the webmail sample, open links or attachments, reply, report, archive, and submit forms in the safe lab.' },
+  { title: 'Review', text: 'After interaction, the lab explains what happened, why it is risky, indicators, mitigation, and how the user behaved.' },
+  { title: 'Solve checks', text: 'Questions verify domain logic, writing manipulation, attachment risk, safe escalation, and related phishing variants.' },
 ];
 
 const cohorts = [
@@ -41,7 +49,7 @@ export default function AdminPage() {
               </div>
               <button className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-black active:scale-[0.98]" type="button">
                 <Sparkles className="h-4 w-4" />
-                Generate scenario
+                Generate email lab
               </button>
             </div>
           </div>
@@ -67,12 +75,36 @@ export default function AdminPage() {
           </div>
         </section>
 
+        <section className="rounded-xl bg-white/5 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary">GPT lab design</p>
+              <h2 className="mt-1 text-xl font-bold">How an admin creates an email lab</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
+                Admins define the learning concept and difficulty. GPT can generate the email sample, while the platform keeps a human approval step before publishing.
+              </p>
+            </div>
+            <button className="rounded-full bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/75" type="button">
+              New lab draft
+            </button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            {labBlueprint.map((step, index) => (
+              <article key={step.title} className="rounded-xl bg-black p-4">
+                <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-black text-black">{index + 1}</div>
+                <h3 className="text-sm font-black">{step.title}</h3>
+                <p className="mt-2 text-xs leading-5 text-white/60">{step.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold">Scenario review queue</h2>
-                <p className="mt-1 text-sm text-white/65">Approve, edit, or return generated simulations before publishing.</p>
+                <p className="mt-1 text-sm text-white/65">Approve, edit, or return generated email labs before publishing.</p>
               </div>
               <Link className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold" href="/challenges">View catalog</Link>
             </div>

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { Document } from 'mongodb';
 import { DatabaseService } from '../../database/database.service';
+import { MongoDatabaseService } from '../../database/mongo-database.service';
 import { ChallengesService, type ChallengeRecord } from '../challenges/challenges.service';
 import type { RecordActionDto } from './dto/record-action.dto';
 
@@ -24,17 +26,41 @@ type SessionRow = {
   completed_at: Date | null;
 };
 
+type SessionDocument = SessionRecord & Document;
+
+type UserActionDocument = Document & {
+  id: string;
+  sessionId: string;
+  actionType: string;
+  target?: string;
+  metadata?: Record<string, unknown>;
+  occurredAt: string;
+  result: Record<string, unknown>;
+};
+
 @Injectable()
 export class SessionsService {
   private readonly memorySessions = new Map<string, SessionRecord>();
 
   constructor(
     private readonly database: DatabaseService,
+    private readonly mongo: MongoDatabaseService,
     private readonly challengesService: ChallengesService,
   ) {}
 
   async start(challengeId: string) {
     await this.challengesService.findOne(challengeId);
+
+    if (this.mongo.configured) {
+      const session: SessionRecord = {
+        id: randomUUID(),
+        challengeId,
+        status: 'STARTED',
+        startedAt: new Date().toISOString(),
+      };
+      await (await this.mongo.collection<SessionDocument>('challenge_sessions')).insertOne(session);
+      return session;
+    }
 
     if (!this.database.configured) {
       const session: SessionRecord = {
@@ -60,6 +86,30 @@ export class SessionsService {
     const session = await this.getSession(sessionId);
     const challenge = await this.challengesService.findOne(session.challengeId);
     const result = this.evaluateAction(challenge, body.actionType);
+
+    if (this.mongo.configured) {
+      const nextSession: SessionRecord = {
+        ...session,
+        status: 'COMPLETED',
+        score: result.score,
+        riskScore: result.riskScore,
+        completedAt: new Date().toISOString(),
+      };
+      await (await this.mongo.collection<SessionDocument>('challenge_sessions')).updateOne(
+        { id: sessionId },
+        { $set: nextSession },
+      );
+
+      const action = {
+        id: randomUUID(),
+        sessionId,
+        ...body,
+        occurredAt: new Date().toISOString(),
+        result,
+      };
+      await (await this.mongo.collection<UserActionDocument>('user_actions')).insertOne(action);
+      return action;
+    }
 
     if (!this.database.configured) {
       const nextSession: SessionRecord = {
@@ -101,6 +151,14 @@ export class SessionsService {
   }
 
   private async getSession(sessionId: string) {
+    if (this.mongo.configured) {
+      const session = await (await this.mongo.collection<SessionDocument>('challenge_sessions')).findOne({ id: sessionId });
+      if (!session) {
+        throw new Error('Session not found');
+      }
+      return this.fromDocument(session);
+    }
+
     if (!this.database.configured) {
       const session = this.memorySessions.get(sessionId);
       if (!session) {
@@ -150,6 +208,18 @@ export class SessionsService {
       riskScore: row.risk_score ?? undefined,
       startedAt: row.started_at.toISOString(),
       completedAt: row.completed_at?.toISOString(),
+    };
+  }
+
+  private fromDocument(row: SessionDocument): SessionRecord {
+    return {
+      id: row.id,
+      challengeId: row.challengeId,
+      status: row.status,
+      score: row.score,
+      riskScore: row.riskScore,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
     };
   }
 }

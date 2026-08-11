@@ -115,22 +115,23 @@ export const docsHtml = `<!doctype html>
 
       <section>
         <h2>Environment</h2>
-        <p>Use <code>backend/.env.example</code> as the template. <code>GEMINI_API_KEY</code> is optional during verification; when it is missing, AI generation uses deterministic mock output with the same response shape.</p>
+        <p>MongoDB is the primary persistence layer. <code>GEMINI_API_KEY</code> is optional during verification; when it is missing, AI generation uses deterministic mock output with the same response shape.</p>
         <pre>PORT=4000
 FRONTEND_URL=http://localhost:3000
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=phishaware
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-1.5-flash
-DATABASE_URL=postgres://phishaware:phishaware@localhost:5432/phishaware</pre>
+GEMINI_MODEL=gemini-1.5-flash</pre>
       </section>
 
       <section>
         <h2>Auth</h2>
         <div class="endpoint"><span class="method">POST</span><span class="path">/api/v1/auth/register</span></div>
-        <p>Creates a mock user and returns <code>mock-access-token</code>.</p>
-        <pre>{"email":"alex@example.com","displayName":"Alex Morgan"}</pre>
+        <p>Creates a learner account and stores it in MongoDB when <code>MONGODB_URI</code> is configured.</p>
+        <pre>{"email":"alex@example.com","displayName":"Alex Morgan","password":"strong-password"}</pre>
         <div class="endpoint"><span class="method">POST</span><span class="path">/api/v1/auth/login</span></div>
-        <p>Returns the demo learner user and <code>mock-access-token</code>.</p>
-        <pre>{"email":"alex@example.com"}</pre>
+        <p>Validates credentials and returns the learner profile plus bearer access token.</p>
+        <pre>{"email":"alex@example.com","password":"strong-password"}</pre>
       </section>
 
       <section>
@@ -152,7 +153,7 @@ DATABASE_URL=postgres://phishaware:phishaware@localhost:5432/phishaware</pre>
         <div class="grid">
           <div class="card">
             <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/challenges</span></div>
-            <p>Lists saved challenges. Without a database, returns in-memory seed data and generated challenges from the current server process.</p>
+            <p>Lists saved challenges. With MongoDB enabled, the default starter challenges are seeded automatically when the collection is empty.</p>
           </div>
           <div class="card">
             <div class="endpoint"><span class="method">GET</span><span class="path">/api/v1/challenges/:id</span></div>

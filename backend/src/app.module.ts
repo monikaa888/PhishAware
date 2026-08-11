@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ChallengesModule } from './modules/challenges/challenges.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     ChallengesModule,
     SessionsModule,
     AiModule,
+    PlatformAdminModule,
   ],
 })
 export class AppModule {}

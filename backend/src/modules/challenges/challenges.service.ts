@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { Document } from 'mongodb';
 import { AiGenerationService } from '../ai/ai-generation.service';
 import type { GeneratedChallenge } from '../ai/ai.types';
 import { DatabaseService } from '../../database/database.service';
+import { MongoDatabaseService } from '../../database/mongo-database.service';
 import type { CreateChallengeDto } from './dto/create-challenge.dto';
 import type { GenerateAndSaveChallengeDto } from './dto/generate-and-save-challenge.dto';
 
@@ -18,6 +20,7 @@ export type ChallengeRecord = {
   scoringSpec: Record<string, unknown>;
   suspiciousIndicators: string[];
   explanation?: Record<string, unknown>;
+  scheduledReleaseAt?: string;
 };
 
 type ChallengeRow = {
@@ -30,6 +33,12 @@ type ChallengeRow = {
   scoring_spec: Record<string, unknown>;
   suspicious_indicators: string[];
 };
+
+type ChallengeDocument = ChallengeRecord &
+  Document & {
+    createdAt: string;
+    updatedAt: string;
+  };
 
 const seedChallenges: ChallengeRecord[] = [
   {
@@ -73,13 +82,22 @@ const seedChallenges: ChallengeRecord[] = [
 @Injectable()
 export class ChallengesService {
   private readonly memoryChallenges = [...seedChallenges];
+  private mongoSeedChecked = false;
 
   constructor(
     private readonly database: DatabaseService,
+    private readonly mongo: MongoDatabaseService,
     private readonly aiGenerationService: AiGenerationService,
   ) {}
 
   async list() {
+    if (this.mongo.configured) {
+      await this.ensureMongoSeeded();
+      const challenges = await this.mongo.collection<ChallengeDocument>('challenges');
+      const rows = await challenges.find().sort({ createdAt: -1 }).toArray();
+      return rows.map((row) => this.fromDocument(row));
+    }
+
     if (!this.database.configured) {
       return this.memoryChallenges;
     }
@@ -93,6 +111,13 @@ export class ChallengesService {
   }
 
   async findOne(id: string) {
+    if (this.mongo.configured) {
+      await this.ensureMongoSeeded();
+      const row = await (await this.mongo.collection<ChallengeDocument>('challenges')).findOne({ id });
+      if (!row) throw new NotFoundException('Challenge not found');
+      return this.fromDocument(row);
+    }
+
     if (!this.database.configured) {
       const challenge = this.memoryChallenges.find((item) => item.id === id);
       if (!challenge) throw new NotFoundException('Challenge not found');
@@ -124,6 +149,11 @@ export class ChallengesService {
       suspiciousIndicators: [],
     };
 
+    if (this.mongo.configured) {
+      await this.insertMongoChallenge(challenge);
+      return challenge;
+    }
+
     if (!this.database.configured) {
       this.memoryChallenges.push(challenge);
       return challenge;
@@ -138,9 +168,117 @@ export class ChallengesService {
     return this.fromRow(result.rows[0]);
   }
 
+  async updateStatus(id: string, status: ChallengeRecord['status']) {
+    const challenge = await this.findOne(id);
+    const updatedChallenge = { ...challenge, status };
+
+    if (this.mongo.configured) {
+      await (await this.mongo.collection<ChallengeDocument>('challenges')).updateOne(
+        { id },
+        { $set: { status, updatedAt: new Date().toISOString() } },
+      );
+      return updatedChallenge;
+    }
+
+    if (!this.database.configured) {
+      const index = this.memoryChallenges.findIndex((item) => item.id === id);
+      if (index === -1) throw new NotFoundException('Challenge not found');
+      this.memoryChallenges[index] = updatedChallenge;
+      return updatedChallenge;
+    }
+
+    const result = await this.database.query<ChallengeRow>(
+      `UPDATE challenges
+       SET status = $2
+       WHERE id = $1
+       RETURNING id, title, challenge_type, difficulty, status, simulation_spec, scoring_spec, suspicious_indicators`,
+      [id, status],
+    );
+    const row = result.rows[0];
+    if (!row) throw new NotFoundException('Challenge not found');
+    return this.fromRow(row);
+  }
+
+  async update(id: string, input: Partial<Pick<ChallengeRecord, 'title' | 'type' | 'difficulty' | 'status' | 'scheduledReleaseAt'>> & { context?: string; lure?: string }) {
+    const challenge = await this.findOne(id);
+    const simulationSpec = {
+      ...challenge.simulationSpec,
+      ...(input.context !== undefined ? { context: input.context } : {}),
+      ...(input.lure !== undefined ? { lure: input.lure } : {}),
+    };
+    const updatedChallenge: ChallengeRecord = {
+      ...challenge,
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.type !== undefined ? { type: input.type } : {}),
+      ...(input.difficulty !== undefined ? { difficulty: input.difficulty } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.scheduledReleaseAt !== undefined ? { scheduledReleaseAt: input.scheduledReleaseAt || undefined } : {}),
+      simulationSpec,
+    };
+
+    if (this.mongo.configured) {
+      const setUpdates: Record<string, unknown> = {
+        title: updatedChallenge.title,
+        type: updatedChallenge.type,
+        difficulty: updatedChallenge.difficulty,
+        status: updatedChallenge.status,
+        simulationSpec,
+        updatedAt: new Date().toISOString(),
+      };
+      const unsetUpdates: Record<string, ''> = {};
+      if (updatedChallenge.scheduledReleaseAt) {
+        setUpdates.scheduledReleaseAt = updatedChallenge.scheduledReleaseAt;
+      } else {
+        unsetUpdates.scheduledReleaseAt = '';
+      }
+
+      await (await this.mongo.collection<ChallengeDocument>('challenges')).updateOne(
+        { id },
+        {
+          $set: setUpdates,
+          ...(Object.keys(unsetUpdates).length ? { $unset: unsetUpdates } : {}),
+        },
+      );
+      return updatedChallenge;
+    }
+
+    if (!this.database.configured) {
+      const index = this.memoryChallenges.findIndex((item) => item.id === id);
+      if (index === -1) throw new NotFoundException('Challenge not found');
+      this.memoryChallenges[index] = updatedChallenge;
+      return updatedChallenge;
+    }
+
+    return this.updateStatus(id, updatedChallenge.status);
+  }
+
+  async delete(id: string) {
+    await this.findOne(id);
+
+    if (this.mongo.configured) {
+      await (await this.mongo.collection<ChallengeDocument>('challenges')).deleteOne({ id });
+      return { deleted: true };
+    }
+
+    if (!this.database.configured) {
+      const index = this.memoryChallenges.findIndex((item) => item.id === id);
+      if (index === -1) throw new NotFoundException('Challenge not found');
+      this.memoryChallenges.splice(index, 1);
+      return { deleted: true };
+    }
+
+    await this.database.query('DELETE FROM challenges WHERE id = $1', [id]);
+    return { deleted: true };
+  }
+
   async generateAndSave(input: GenerateAndSaveChallengeDto) {
     const generated = await this.aiGenerationService.generateChallenge(input);
     const challenge = this.fromGenerated(generated, input.status ?? 'DRAFT');
+
+    if (this.mongo.configured) {
+      await this.insertMongoChallenge(challenge);
+      return challenge;
+    }
 
     if (!this.database.configured) {
       this.memoryChallenges.unshift(challenge);
@@ -202,6 +340,47 @@ export class ChallengesService {
       suspiciousIndicators: row.suspicious_indicators,
       explanation: row.simulation_spec.explanation as Record<string, unknown> | undefined,
     };
+  }
+
+  private fromDocument(row: ChallengeDocument): ChallengeRecord {
+    return {
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      difficulty: row.difficulty,
+      xp: row.xp,
+      durationMinutes: row.durationMinutes,
+      status: row.status,
+      simulationSpec: row.simulationSpec,
+      scoringSpec: row.scoringSpec,
+      suspiciousIndicators: row.suspiciousIndicators,
+      explanation: row.explanation,
+      scheduledReleaseAt: row.scheduledReleaseAt,
+    };
+  }
+
+  private async insertMongoChallenge(challenge: ChallengeRecord) {
+    const now = new Date().toISOString();
+    await (await this.mongo.collection<ChallengeDocument>('challenges')).insertOne({
+      ...challenge,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  private async ensureMongoSeeded() {
+    if (this.mongoSeedChecked) return;
+
+    const challenges = await this.mongo.collection<ChallengeDocument>('challenges');
+    await challenges.createIndex({ id: 1 }, { unique: true });
+    const count = await challenges.countDocuments();
+
+    if (count === 0) {
+      const now = new Date().toISOString();
+      await challenges.insertMany(seedChallenges.map((challenge) => ({ ...challenge, createdAt: now, updatedAt: now })));
+    }
+
+    this.mongoSeedChecked = true;
   }
 
   private slugOrUuid(title: string) {

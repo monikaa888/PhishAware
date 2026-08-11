@@ -1,15 +1,15 @@
-import { BarChart3, Brain, CheckCircle2, Mail, MessageCircle, QrCode, Shield, Smartphone } from 'lucide-react';
+import { BarChart3, Brain, CheckCircle2, FileText, Link2, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { PublicShell } from '@/components/marketing/public-shell';
 import { SimulationPreview } from '@/components/simulation-preview';
 
 const modules = [
-  { icon: Mail, title: 'Email phishing', text: 'Inbox, sender, link, attachment, and report-flow simulations.' },
-  { icon: Smartphone, title: 'SMS smishing', text: 'Mobile message scenarios with risky links, OTP pressure, and delivery scams.' },
-  { icon: MessageCircle, title: 'Social messages', text: 'Fake recruiters, friend requests, giveaways, and impersonation attempts.' },
-  { icon: QrCode, title: 'QR phishing', text: 'Poster, event, Wi-Fi, and payment QR scenarios for modern attack paths.' },
-  { icon: Brain, title: 'AI generation', text: 'Fresh lures by audience, difficulty, language, industry, and objective.' },
+  { icon: Mail, title: 'Email inbox labs', text: 'Realistic webmail exercises for sender checks, reply paths, headers, and report flows.' },
+  { icon: Link2, title: 'Domain and URL labs', text: 'Homograph domains, subdomain tricks, lookalike text, and destination analysis.' },
+  { icon: FileText, title: 'Attachment labs', text: 'Invoice, document-share, payroll, and vendor-change attachment scenarios.' },
+  { icon: Brain, title: 'GPT-assisted generation', text: 'Admins can draft email samples by audience, difficulty, concept, industry, and objective.' },
   { icon: BarChart3, title: 'Analytics', text: 'Awareness scores, completion rates, weak areas, and cohort risk trends.' },
+  { icon: Shield, title: 'Guided reviews', text: 'Each lab explains anatomy, manipulation, indicators, and mitigation after interaction.' },
 ];
 
 export default function PlatformPage() {
@@ -21,7 +21,7 @@ export default function PlatformPage() {
             <p className="font-mono text-xs uppercase tracking-widest text-primary">Platform</p>
             <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">A realistic cyber awareness lab for everyday users.</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-on-surface-variant">
-              PhishAware turns awareness into practice with simulations, adaptive recommendations, and admin-ready reporting.
+              PhishAware turns awareness into practice with email labs, adaptive recommendations, and admin-ready reporting.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link className="pressable rounded-xl bg-primary-container px-6 py-4 text-center font-bold text-on-primary-container" href="/signup">

@@ -1,9 +1,9 @@
-import { AtSign, CheckCircle2, Mail, MessageCircle, ShieldAlert, Smartphone } from 'lucide-react';
+import { AtSign, CheckCircle2, FileText, Link2, Mail, ShieldAlert } from 'lucide-react';
 
 const channels = [
-  { label: 'Email', icon: Mail, active: true },
-  { label: 'SMS', icon: Smartphone, active: false },
-  { label: 'Social', icon: MessageCircle, active: false },
+  { label: 'Inbox', icon: Mail, active: true },
+  { label: 'Links', icon: Link2, active: false },
+  { label: 'Files', icon: FileText, active: false },
 ];
 
 const preview = {
@@ -60,13 +60,13 @@ export function SimulationPreview() {
           <div className="flex gap-2">
             <AtSign className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-secondary">AI hint</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-secondary">Review clue</p>
               <p className="mt-1 text-sm text-on-surface-variant">{preview.clue}</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-secondary py-3 font-bold text-black shadow-[0_4px_0_rgba(6,182,212,0.45)]">
+        <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-secondary py-3 font-bold text-black shadow-[0_4px_0_rgba(37,99,235,0.45)]">
           <CheckCircle2 className="h-5 w-5" />
           {preview.action}
         </div>
